@@ -975,6 +975,13 @@ class PROTOBUF_EXPORT MessageDifferencer {
       match_indices_for_smart_list_callback_;
 
   MessageDifferencer::UnpackAnyField unpack_any_field_;
+
+  struct MatchListPair {
+    std::vector<int> match_list1;
+    std::vector<int> match_list2;
+  };
+  std::vector<std::unique_ptr<MatchListPair>> match_list_pool_;
+  int repeated_field_depth_ = 0;
 };
 
 // This class provides extra information to the FieldComparator::Compare
@@ -982,15 +989,23 @@ class PROTOBUF_EXPORT MessageDifferencer {
 class PROTOBUF_EXPORT FieldContext {
  public:
   explicit FieldContext(
-      std::vector<MessageDifferencer::SpecificField>* parent_fields)
-      : parent_fields_(parent_fields) {}
+      std::vector<MessageDifferencer::SpecificField>* parent_fields,
+      const Reflection* reflection1 = nullptr,
+      const Reflection* reflection2 = nullptr)
+      : parent_fields_(parent_fields),
+        reflection1_(reflection1),
+        reflection2_(reflection2) {}
 
   std::vector<MessageDifferencer::SpecificField>* parent_fields() const {
     return parent_fields_;
   }
+  const Reflection* reflection1() const { return reflection1_; }
+  const Reflection* reflection2() const { return reflection2_; }
 
  private:
   std::vector<MessageDifferencer::SpecificField>* parent_fields_;
+  const Reflection* reflection1_;
+  const Reflection* reflection2_;
 };
 
 }  // namespace util
