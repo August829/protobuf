@@ -242,12 +242,10 @@ std::string RustModule(Context& ctx, const OneofDescriptor& oneof) {
 }
 
 std::string RustInternalModuleName(const FileDescriptor& file) {
-  std::string result;
-  result.reserve(file.name().size());
+  std::string result = "_pb_";
+  result.reserve(file.name().size() + result.size());
   for (char c : StripProto(file.name())) {
     if (c == '_') {
-      result += "__";
-    } else if (c == '-') {
       result += "__";
     } else if (c == '/') {
       result += "_s";
@@ -256,7 +254,7 @@ std::string RustInternalModuleName(const FileDescriptor& file) {
     } else {
       // Escape any other characters that aren't valid in Rust identifiers
       // by substituting them with an underscore followed by their hex value
-      // and another underscore (e.g. '.' becomes '_2e_').
+      // and another underscore (e.g. '.' becomes '_2e_', '-' becomes '_2d_').
       absl::StrAppendFormat(&result, "_%02x_", static_cast<unsigned char>(c));
     }
   }

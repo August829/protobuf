@@ -203,6 +203,100 @@ TEST_F(RustGeneratorTest, EmitsEnumMetadata) {
       "Alias1", GeneratedCodeInfo::Annotation::NONE, 1);
 }
 
+TEST_F(RustGeneratorTest, EmitsPublicFileModuleInEntryPoint) {
+  constexpr absl::string_view kFooProto = R"schema(
+    syntax = "proto2";
+    package foo;
+    message Message {
+    })schema";
+  CreateTempFile("foo.proto", kFooProto);
+  RunProtoc(
+      "protocol_compiler --proto_path=$tmpdir "
+      "--rust_out=$tmpdir "
+      "--rust_opt=experimental-codegen=enabled,kernel=cpp "
+      "foo.proto");
+  ExpectNoErrors();
+
+  std::string entry_point = FileContents("generated.rs");
+  EXPECT_THAT(entry_point, HasSubstr("pub mod _pb_foo;"));
+  EXPECT_THAT(entry_point, HasSubstr("pub use _pb_foo::*;"));
+  EXPECT_THAT(entry_point, Not(HasSubstr("internal_do_not_use_")));
+  EXPECT_THAT(entry_point, Not(HasSubstr("#[doc(hidden)]")));
+}
+
+TEST_F(RustGeneratorTest, EmitsPublicFileModulesForMultiFileCrate) {
+  constexpr absl::string_view kFooProto = R"schema(
+    syntax = "proto2";
+    package foo;
+    message Config {
+    })schema";
+  constexpr absl::string_view kBarProto = R"schema(
+    syntax = "proto2";
+    package bar;
+    message Config {
+    })schema";
+  CreateTempFile("foo.proto", kFooProto);
+  CreateTempFile("bar.proto", kBarProto);
+  RunProtoc(
+      "protocol_compiler --proto_path=$tmpdir "
+      "--rust_out=$tmpdir "
+      "--rust_opt=experimental-codegen=enabled,kernel=cpp "
+      "foo.proto bar.proto");
+  ExpectNoErrors();
+
+  std::string entry_point = FileContents("generated.rs");
+  EXPECT_THAT(entry_point, HasSubstr("pub mod _pb_foo;"));
+  EXPECT_THAT(entry_point, HasSubstr("pub mod _pb_bar;"));
+  EXPECT_THAT(entry_point, Not(HasSubstr("internal_do_not_use_")));
+}
+
+TEST_F(RustGeneratorTest, EmitsValidIdentifierForLeadingDigitFile) {
+  constexpr absl::string_view kProto = R"schema(
+    syntax = "proto2";
+    package sample;
+    message Config {}
+  )schema";
+  CreateTempFile("0.1.proto", kProto);
+  RunProtoc(
+      "protocol_compiler --proto_path=$tmpdir "
+      "--rust_out=$tmpdir "
+      "--rust_opt=experimental-codegen=enabled,kernel=cpp "
+      "0.1.proto");
+  ExpectNoErrors();
+
+  std::string entry_point = FileContents("generated.rs");
+  // Leading digits must have a prefix so the module name is a valid identifier.
+  EXPECT_THAT(entry_point, HasSubstr("pub mod _pb_0_2e_1;"));
+  EXPECT_THAT(entry_point, HasSubstr("pub use _pb_0_2e_1::*;"));
+  EXPECT_THAT(entry_point, Not(HasSubstr("pub mod 0_2e_1;")));
+}
+
+TEST_F(RustGeneratorTest, EmitsDistinctModulesForHyphenAndUnderscoreFiles) {
+  constexpr absl::string_view kProto1 = R"schema(
+    syntax = "proto2";
+    package sample;
+    message A {}
+  )schema";
+  constexpr absl::string_view kProto2 = R"schema(
+    syntax = "proto2";
+    package sample;
+    message B {}
+  )schema";
+  CreateTempFile("foo_bar.proto", kProto1);
+  CreateTempFile("foo-bar.proto", kProto2);
+  RunProtoc(
+      "protocol_compiler --proto_path=$tmpdir "
+      "--rust_out=$tmpdir "
+      "--rust_opt=experimental-codegen=enabled,kernel=cpp "
+      "foo_bar.proto foo-bar.proto");
+  ExpectNoErrors();
+
+  std::string entry_point = FileContents("generated.rs");
+  // foo_bar.proto and foo-bar.proto must generate distinct module names.
+  EXPECT_THAT(entry_point, HasSubstr("pub mod _pb_foo__bar;"));
+  EXPECT_THAT(entry_point, HasSubstr("pub mod _pb_foo_2d_bar;"));
+}
+
 }  // namespace
 }  // namespace rust
 }  // namespace compiler

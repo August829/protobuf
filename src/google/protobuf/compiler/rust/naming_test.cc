@@ -22,19 +22,28 @@ TEST(RustProtoNaming, RustInternalModuleName) {
   };
 
   EXPECT_EQ(get_internal_module_name("strong_bad/lol.proto"),
-            "strong__bad_slol");
-  EXPECT_EQ(get_internal_module_name("0.1.proto"), "0_2e_1");
-  EXPECT_EQ(get_internal_module_name("_.proto"), "__");
-  EXPECT_EQ(get_internal_module_name("abc   .proto"), "abc_20__20__20_");
-  EXPECT_EQ(get_internal_module_name("hello (2).proto"), "hello_20__28_2_29_");
-  EXPECT_EQ(get_internal_module_name("k8s.min.proto"), "k8s_2e_min");
-  EXPECT_EQ(get_internal_module_name("c++.proto"), "c_2b__2b_");
-  EXPECT_EQ(get_internal_module_name("hello,world.proto"), "hello_2c_world");
+            "_pb_strong__bad_slol");
+  EXPECT_EQ(get_internal_module_name("0.1.proto"), "_pb_0_2e_1");
+  EXPECT_EQ(get_internal_module_name("2fa.proto"), "_pb_2fa");
+  EXPECT_EQ(get_internal_module_name("_.proto"), "_pb___");
+  EXPECT_EQ(get_internal_module_name("abc   .proto"), "_pb_abc_20__20__20_");
+  EXPECT_EQ(get_internal_module_name("hello (2).proto"),
+            "_pb_hello_20__28_2_29_");
+  EXPECT_EQ(get_internal_module_name("k8s.min.proto"), "_pb_k8s_2e_min");
+  EXPECT_EQ(get_internal_module_name("c++.proto"), "_pb_c_2b__2b_");
+  EXPECT_EQ(get_internal_module_name("hello,world.proto"),
+            "_pb_hello_2c_world");
   EXPECT_EQ(get_internal_module_name("hello..world.proto"),
-            "hello_2e__2e_world");
+            "_pb_hello_2e__2e_world");
   EXPECT_EQ(get_internal_module_name("hello_你好.proto"),
-            "hello___e4__bd__a0__e5__a5__bd_");
-  EXPECT_EQ(get_internal_module_name("my-message.proto"), "my__message");
+            "_pb_hello___e4__bd__a0__e5__a5__bd_");
+  EXPECT_EQ(get_internal_module_name("my-message.proto"), "_pb_my_2d_message");
+  EXPECT_EQ(get_internal_module_name("my_message.proto"), "_pb_my__message");
+  // Regression test: '-' and '_' must NOT collide.
+  EXPECT_NE(get_internal_module_name("foo-bar.proto"),
+            get_internal_module_name("foo_bar.proto"));
+  EXPECT_NE(get_internal_module_name("2e/sfoo.proto"),
+            get_internal_module_name(".sfoo.proto"));
 }
 
 TEST(RustProtoNaming, CamelToSnakeCase) {
