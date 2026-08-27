@@ -529,6 +529,87 @@ TEST_F(JavaGeneratorTest, ExtensionsPublicImportsAreKnown) {
                                          "foo.FooProto.fileOpt);")));
 }
 
+}
+
+TEST_F(JavaGeneratorTest, OneofHasBitsBuildPartial) {
+  CreateTempFile("oneof_has_bits.proto",
+                 R"schema(
+    syntax = "proto2";
+    package com.google.protos;
+    option java_multiple_files = true;
+    message SubMsg {
+      optional int32 x = 1;
+    }
+    message TestOneofHasBits {
+      optional int32 regular_int = 1;
+      oneof my_oneof {
+        int32 oneof_int = 2;
+        string oneof_str = 3;
+        SubMsg oneof_msg = 4;
+      }
+    })schema");
+
+  RunProtoc(
+      "protocol_compiler --proto_path=$tmpdir --java_out=$tmpdir "
+      "oneof_has_bits.proto");
+
+  ExpectNoErrors();
+  EXPECT_TRUE(
+      FileGenerated(PACKAGE_PREFIX "com/google/protos/TestOneofHasBits.java"));
+  // Verify message typed field in oneof is treated like regular message typed
+  // fields (checked via bitField0_ & 0x00000008).
+  EXPECT_TRUE(FileContainsSubstring(PACKAGE_PREFIX
+                                    "com/google/protos/TestOneofHasBits.java",
+                                    "((bitField0_ & 0x00000008) != 0)"));
+  // Verify non-message oneof fields are grouped together by bitField
+  // membership (0x00000002 | 0x00000004 = 0x00000006).
+  EXPECT_TRUE(FileContainsSubstring(PACKAGE_PREFIX
+                                    "com/google/protos/TestOneofHasBits.java",
+                                    "if ((bitField0_ & 0x00000006) != 0)"));
+  // Verify clear<FieldName>() clears the individual has-bit.
+  EXPECT_TRUE(FileContainsSubstring(
+      PACKAGE_PREFIX "com/google/protos/TestOneofHasBits.java",
+      "public Builder clearOneofInt() {\n"
+      "      if (myOneofCase_ == 2) {\n"
+      "        myOneofCase_ = 0;\n"
+      "        bitField0_ = (bitField0_ & ~0x00000002);\n"
+      "        myOneof_ = null;\n"
+      "        onChanged();\n"
+      "      }\n"
+      "      return this;\n"
+      "    }"));
+  EXPECT_TRUE(FileContainsSubstring(
+      PACKAGE_PREFIX "com/google/protos/TestOneofHasBits.java",
+      "public Builder clearOneofStr() {\n"
+      "      if (myOneofCase_ == 3) {\n"
+      "        myOneofCase_ = 0;\n"
+      "        bitField0_ = (bitField0_ & ~0x00000004);\n"
+      "        myOneof_ = null;\n"
+      "        onChanged();\n"
+      "      }\n"
+      "      return this;\n"
+      "    }"));
+  EXPECT_TRUE(FileContainsSubstring(
+      PACKAGE_PREFIX "com/google/protos/TestOneofHasBits.java",
+      "public Builder clearOneofMsg() {\n"
+      "      if (oneofMsgBuilder_ == null) {\n"
+      "        if (myOneofCase_ == 4) {\n"
+      "          myOneofCase_ = 0;\n"
+      "          bitField0_ = (bitField0_ & ~0x00000008);\n"
+      "          myOneof_ = null;\n"
+      "          onChanged();\n"
+      "        }\n"
+      "      } else {\n"
+      "        if (myOneofCase_ == 4) {\n"
+      "          myOneofCase_ = 0;\n"
+      "          bitField0_ = (bitField0_ & ~0x00000008);\n"
+      "          myOneof_ = null;\n"
+      "          oneofMsgBuilder_.clear();\n"
+      "        }\n"
+      "      }\n"
+      "      return this;\n"
+      "    }"));
+}
 
 }  // namespace
 }  // namespace java
